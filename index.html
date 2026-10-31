@@ -54,7 +54,7 @@
 </main>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <dialog id="dialog" aria-labelledby="dialog-title"><button class="icon-button dialog-close" id="dialog-close" aria-label="关闭"><svg><use href="#i-close"/></svg></button><div id="dialog-content"></div></dialog>
-<dialog id="story" class="story-dialog" aria-labelledby="story-title"><div class="story-stars" aria-hidden="true">✦ · ✧</div><canvas id="story-bear" width="230" height="210" role="img" aria-label="轻松熊"></canvas><h2 id="story-title">许一个小小愿望</h2><p id="story-copy"></p><form id="wish-form" hidden><label for="wish-input">写下你的愿望</label><input id="wish-input" autocomplete="off" maxlength="80" placeholder="轻轻写在这里…"><button class="primary-button" type="submit">告诉轻松熊</button></form><button id="story-ok" class="primary-button">知道啦</button></dialog>
+<dialog id="story" class="story-dialog" aria-labelledby="story-title"><div class="story-stars" aria-hidden="true">✦ · ✧</div><canvas id="story-bear" width="230" height="210" role="img" aria-label="轻松熊"></canvas><h2 id="story-title">许一个小小愿望</h2><p id="story-copy"></p><button id="story-ok" class="primary-button">知道啦</button></dialog>
 <script>/*
 MIT License
 
@@ -688,7 +688,7 @@ class AfternoonGame {
   }
   snapshot() {
     return {version:4,rng:this.rng,score:this.score,time:this.time,drops:this.drops,merges:this.merges,maxLevel:this.maxLevel,
-      rewardShown:this.rewardShown===true,danger:this.danger,tidyEarned:this.tidyEarned,tidyUsed:this.tidyUsed,current:this.current,next:this.next,
+      rewardThreshold:this.rewardThreshold===88888?88888:0,rewardShown:this.rewardShown===true,danger:this.danger,tidyEarned:this.tidyEarned,tidyUsed:this.tidyUsed,current:this.current,next:this.next,
       bodies:this.world.bodies.map(b=>({level:b.level,x:b.x,y:b.y,vx:b.vx,vy:b.vy,w:b.w,angle:b.angle,born:b.born,landed:b.landed}))};
   }
   static restore(s) {
@@ -709,6 +709,7 @@ class AfternoonGame {
       if(Math.abs(b.x)>1000||b.y < -1000||b.y>H+300||Math.abs(b.vx)>2000||Math.abs(b.vy)>2000||Math.abs(b.w)>100)throw Error('Invalid save');
     }
     const g=new AfternoonGame(s.rng);
+    g.rewardThreshold=s.rewardThreshold===88888?88888:0;
     for(const key of ['rng','score','time','drops','merges','maxLevel','danger','current','next'])g[key]=s[key];
     for(const key of ['tidyEarned','tidyUsed','rewardShown'])g[key]=s[key]===true;
     for(const b of s.bodies)g.add(b.level,b.x,b.y,b);
@@ -721,22 +722,19 @@ return {AfternoonGame,W,H,LINE,LEVELS,tierOf,dropBounds};
 // story.js
 modules.story=(()=>{
 const WORDS=Object.freeze({
- question:'hi，你的愿望是什么呀，听说只要陪我玩一局一切愿望都会成真哦。',
- secret:'许愿像轻松熊一样轻松',
- success:'哇，你就是wyl大美女吧，毕竟只有你才会知道本熊的暗语呀～',
- failure:'你这个愿望太难了，本熊实现不了呀',
- ending:'你的愿望实现啦，你以后的每一天都会和本熊一样轻松哦，开开心心，顺顺利利，平平安安～ 本熊还听说下次早八点瑞幸第一杯做的就是你的！而且本熊已经把你以后所有的实验都变简单啦',
- prize:'哇，你也太厉害了吧！本熊要送给你一份轻松之神秘大奖！放在wzn那啦，看到这就找他兑奖吧～'
+ greeting:'你好呀，wyl大美女',
+ ending:'你以后的每一天都会和本熊一样轻松哦，开开心心，顺顺利利，平平安安～',
+ prize:'哇塞你也太厉害了！可凭此弹窗于wzn处领取神秘大奖一份！'
 });
-const acceptsWish=value=>value===WORDS.secret;
-function takePrize(game){if(game.score<=20000||game.rewardShown===true)return false;game.rewardShown=true;return true;}
+const PRIZE_SCORE=88888;
+function takePrize(game){if(game.score<PRIZE_SCORE||(game.rewardShown===true&&game.rewardThreshold===PRIZE_SCORE))return false;game.rewardShown=true;game.rewardThreshold=PRIZE_SCORE;return true;}
 
-return {WORDS,acceptsWish,takePrize};
+return {WORDS,takePrize};
 })();
 // app.js
 modules.app=(()=>{
 const {AfternoonGame,W,H,LINE,LEVELS,tierOf,dropBounds}=modules.model;
-const {WORDS,acceptsWish,takePrize}=modules.story;
+const {WORDS,takePrize}=modules.story;
 const $=id=>document.getElementById(id),canvas=$('game'),ctx=canvas.getContext('2d');
 let atlases=[],pages=[],regions=[],portraits=null;
 const KEY='rilakkuma-afternoon:profile:v1',SAVE='rilakkuma-afternoon:round:v1';
@@ -898,17 +896,17 @@ async function boot(){
 let endingShown=false,storyAction=null,storyReturn=null,storyActive=false,storyQueue=[];
 const story=$('story');
 function portrait(mood=0){const c=$('story-bear'),g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);const r=portraits.regions[mood],scale=Math.min(c.width*.9/r[2],c.height*.94/r[3]);g.drawImage(atlases[portraits.page],...r,(c.width-r[2]*scale)/2,(c.height-r[3]*scale)/2,r[2]*scale,r[3]*scale);c.setAttribute('aria-label',['轻松熊，温柔地微笑','轻松熊，惊喜开心','轻松熊，沮丧地垂下头'][mood]);c.className=['neutral','delighted','sad'][mood];}
-function showStory(title,copy,mood,label,action,wish=false){storyActive=true;$('story-title').textContent=title;$('story-copy').textContent=copy;$('wish-form').hidden=!wish;$('story-ok').hidden=wish;$('story-ok').textContent=label;storyAction=action;if(!story.open)story.showModal();portrait(mood);if(wish)$('wish-input').focus();else $('story-ok').focus();}
+function showStory(title,copy,mood,label,action){storyActive=true;$('story-title').textContent=title;$('story-copy').textContent=copy;$('story-ok').textContent=label;storyAction=action;if(!story.open)story.showModal();portrait(mood);$('story-ok').focus();}
 function closeStory(){storyActive=false;story.close();if(storyQueue.length){showQueuedStory();return;}if(storyReturn){const value=storyReturn;storyReturn=null;setState(value==='playing'&&document.hidden?'paused':value);if(state==='playing')canvas.focus({preventScroll:true});}}
-function askWish(){showStory('许一个小小愿望',WORDS.question,0,'',null,true);}
-function enterGame(){closeStory();$('home').hidden=true;document.querySelector('.game-shell').hidden=false;setState('ready');icons();next();if(restored)resume();else startNew();}
-$('home-start').addEventListener('click',askWish);
+let greetingTimer;
+function greet(){showStory('见到你真开心！',WORDS.greeting,1,'开始玩吧',enterGame);greetingTimer=setTimeout(enterGame,1800);}
+function enterGame(){clearTimeout(greetingTimer);if($('home').hidden)return;closeStory();$('home').hidden=true;document.querySelector('.game-shell').hidden=false;setState('ready');icons();next();if(restored)resume();else startNew();if(document.hidden)pause();}
+$('home-start').addEventListener('click',greet);
 $('author').addEventListener('click',()=>showStory('关于作者','作者：wzn',0,'回到花园',closeStory));
-$('wish-form').addEventListener('submit',e=>{e.preventDefault();if(acceptsWish($('wish-input').value))showStory('被你认出来啦！',WORDS.success,1,'开始轻松的一局',enterGame);else showStory('本熊挠挠头…',WORDS.failure,2,'再许一个愿望',askWish);});
 $('story-ok').addEventListener('click',()=>storyAction?.());
 story.addEventListener('cancel',e=>{e.preventDefault();});
 function queueStory(kind){storyQueue.push(kind);if(storyActive)return;storyReturn=state;if(state==='playing')setState('story');showQueuedStory();}
-function showQueuedStory(){const kind=storyQueue.shift();showStory(kind==='prize'?'轻松之神秘大奖':'愿望已经悄悄实现',WORDS[kind],1,kind==='prize'?'收好惊喜，继续游戏':'带着好运继续',closeStory);}
+function showQueuedStory(){const kind=storyQueue.shift();showStory(kind==='prize'?'轻松之神秘大奖':'轻松熊的祝福',WORDS[kind],1,kind==='prize'?'收好惊喜，继续游戏':'带着好运继续',closeStory);}
 boot();
 
 
