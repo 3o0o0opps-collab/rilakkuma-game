@@ -392,7 +392,8 @@ class World {
         const dy = b.y - a.y;
         const reach = a.bound + b.bound + config.margin;
         if (dx * dx + dy * dy > reach * reach) continue;
-        if (a.sleeping && b.sleeping) continue;
+        // Same-tier sleepers may come from a saved pile with an unmerged touch.
+        if (a.sleeping && b.sleeping && (!a.level || a.level !== b.level)) continue;
         // Something moving touches a sleeper: wake it now, before solving, so it
         // doesn't act as an immovable wall this step (updateSleep then wakes the rest
         // of its island).
@@ -462,6 +463,9 @@ class World {
     c.friction = Math.sqrt(a.friction * b.friction);
 
     const vn = this.relNormal(c);
+    // Capture the imminent touch before restitution/warm starting changes speed.
+    // Only contacts already within the solver's tiny margin are considered.
+    c.mergeImpact = c.pen >= -0.1 || (vn < 0 && c.pen - vn * dt >= 0);
     if (c.pen < 0) {
       // Speculative: allow closing the gap this step, but no more.
       // Reflect a fast impact predicted within this step. Otherwise speculative
@@ -677,7 +681,7 @@ class AfternoonGame {
     const alive=new Set(this.world.bodies), used=new Set(), pairs=[];
     for(const c of this.world.contacts) {
       const a=c.a,b=c.b;
-      if(c.ia<0||!alive.has(a)||!alive.has(b)||used.has(a)||used.has(b)||a.level!==b.level||c.pen < -0.1)continue;
+      if(c.ia<0||!alive.has(a)||!alive.has(b)||used.has(a)||used.has(b)||a.level!==b.level||(c.pen < -0.1&&!c.mergeImpact))continue;
       used.add(a);used.add(b);pairs.push([a,b]);
     }
     // Remove every participant before creating any result: no body can merge twice in one step.
