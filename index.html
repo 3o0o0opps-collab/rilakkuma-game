@@ -943,9 +943,6 @@ function render(dt){
   for(const b of [{pose:1,x:42,y:537},{pose:2,x:105,y:531},{pose:3,x:179,y:535},{pose:7,x:300,y:490}])sprite(ctx,b.pose,b.x,b.y,LEVELS[b.pose-1].visualSize);
  }else{
   if(state==='playing'&&!tidyMode){const b=dropBounds(game.current);aim=Math.max(b.left,Math.min(b.right,aim));
-   let landing=H-b.bottom;const radius=LEVELS[game.current-1].diameter*.44;
-   for(const body of game.world.bodies)for(const shape of body.shapes){const dx=aim-body.x-shape.ox,reach=radius+shape.r;if(Math.abs(dx)<reach)landing=Math.min(landing,body.y+shape.oy-Math.sqrt(reach*reach-dx*dx));}
-   if(landing>100)sprite(ctx,game.current,aim,landing,LEVELS[game.current-1].visualSize,{opacity:.14});
    ctx.save();ctx.globalAlpha=.3;ctx.strokeStyle='#cbbd9b';ctx.setLineDash([2,7]);ctx.beginPath();ctx.moveTo(aim,90);ctx.lineTo(aim,H-14);ctx.stroke();ctx.restore();sprite(ctx,game.current,aim,56,LEVELS[game.current-1].visualSize,{opacity:game.cooldown>0?.27:.95});}
   for(const b of [...game.world.bodies].sort((a,b)=>a.y-b.y)){
    const co=Math.cos(b.angle),si=Math.sin(b.angle),qx=reduced.matches?0:b.jelly;
