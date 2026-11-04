@@ -588,7 +588,7 @@ const W = 400, H = 560, LINE = 106;
 // Diameters describe equal visible silhouette areas, not image bounding boxes.
 // This keeps standing, lying and wrapped poses on the same size progression.
 // Slow the late-game growth so two large bears leave a usable route to merge.
-const DIAMETERS = [32,39,47,56,65,75,86,98,111,124,137,150,163,181];
+const DIAMETERS = [32,39,47,56,65,75,86,98,111,124,137,146,158,175];
 const DEFINITIONS = [
  ['小黄鸡','kiiroitori','#efd07b'],
  ['跳跳小黄鸡','kiiroitori','#e9be6c'],
@@ -652,7 +652,9 @@ class AfternoonGame {
     const counts=new Map();for(const b of this.world.bodies)counts.set(b.level,(counts.get(b.level)||0)+1);
     const orphan=[...counts].filter(([level,n])=>level<min&&n%2===1).sort((a,b)=>a[0]-b[0]);
     if(orphan.length&&this.rollCount%4===0)return orphan[0][0];
-    for(let i=0;i<RULES.spawnWeights.length;i++){value-=(this.maxLevel>=9?[8,14,24,28,26]:RULES.spawnWeights)[i];if(value<0)return i+min;}
+    // A small late-game nudge, unlocked only after first reaching tier twelve.
+    const weights=this.maxLevel>=12?[6,12,24,29,29]:this.maxLevel>=9?[8,14,24,28,26]:RULES.spawnWeights;
+    for(let i=0;i<weights.length;i++){value-=weights[i];if(value<0)return i+min;}
     return min;
   }
   add(level,x,y,extra={}) {
