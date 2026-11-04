@@ -636,7 +636,7 @@ class AfternoonGame {
     this.world=new World({width:W,height:H,gravity:710});
     this.rng=seed>>>0||1;
     this.score=0; this.time=0; this.drops=0; this.merges=0; this.maxLevel=1;
-    this.danger=0; this.over=false; this.tidyEarned=false; this.tidyUsed=false;
+    this.danger=0; this.over=false; this.tidyEarned=false; this.tidyUsed=false;this.bridgeTidyGranted=false;
     this.combo=0; this.lastMerge=-10; this.cooldown=0; this.events=[];
     this.lastImpactSound=-10;
     this.rollCount=0;this.current=1; this.next=this.roll();
@@ -683,6 +683,11 @@ class AfternoonGame {
     this.remove(chosen); this.tidyUsed=true; this.danger=0;
     this.events.push({type:'tidy',level:chosen.level,x:chosen.x,y:chosen.y}); return true;
   }
+  grantBridgeTidy() {
+    if(this.maxLevel!==11||this.bridgeTidyGranted||!this.tidyEarned)return;
+    this.bridgeTidyGranted=true;
+    if(this.tidyUsed){this.tidyUsed=false;this.events.push({type:'ticket'});}
+  }
   remove(b) { this.world.remove(b); this.world.wakeNear(b.x,b.y,b.bound*2); }
   mergeContacts() {
     const alive=new Set(this.world.bodies), used=new Set(), pairs=[];
@@ -707,6 +712,7 @@ class AfternoonGame {
       if(nextTier>this.maxLevel&&nextTier>=12)this.events.push({type:'milestone',level:nextTier,x,y});
       this.maxLevel=Math.max(nextTier,this.maxLevel);
       if(nextTier>=4&&!this.tidyEarned){this.tidyEarned=true;this.events.push({type:'ticket'});}
+      this.grantBridgeTidy();
       if(tier===MAX_TIER) {this.events.push({type:'dream',x,y});continue;}
       const bounds=dropBounds(level);
       const child=this.add(level,clamp(x,bounds.left,bounds.right),Math.min(y,H-bounds.bottom-1));
@@ -771,7 +777,7 @@ class AfternoonGame {
     this.updateJelly(dt);this.mergeContacts();this.updateDanger(dt);
   }
   snapshot() {
-    return {version:5,rollCount:this.rollCount,rng:this.rng,score:this.score,time:this.time,drops:this.drops,merges:this.merges,maxLevel:this.maxLevel,
+    return {version:5,bridgeTidyGranted:this.bridgeTidyGranted,rollCount:this.rollCount,rng:this.rng,score:this.score,time:this.time,drops:this.drops,merges:this.merges,maxLevel:this.maxLevel,
       rewardThreshold:this.rewardThreshold===88888?88888:0,rewardShown:this.rewardShown===true,danger:this.danger,tidyEarned:this.tidyEarned,tidyUsed:this.tidyUsed,current:this.current,next:this.next,
       bodies:this.world.bodies.map(b=>({level:b.level,x:b.x,y:b.y,vx:b.vx,vy:b.vy,w:b.w,angle:b.angle,born:b.born,landed:b.landed}))};
   }
@@ -797,8 +803,9 @@ class AfternoonGame {
     g.rollCount=Number.isSafeInteger(s.rollCount)&&s.rollCount>=0?s.rollCount:0;
     g.rewardThreshold=s.rewardThreshold===88888?88888:0;
     for(const key of ['rng','score','time','drops','merges','maxLevel','danger','current','next'])g[key]=s[key];
-    for(const key of ['tidyEarned','tidyUsed','rewardShown'])g[key]=s[key]===true;
+    for(const key of ['tidyEarned','tidyUsed','rewardShown','bridgeTidyGranted'])g[key]=s[key]===true;
     for(const b of s.bodies)g.add(b.level,b.x,b.y,b);
+    g.grantBridgeTidy();
     return g;
   }
 }
