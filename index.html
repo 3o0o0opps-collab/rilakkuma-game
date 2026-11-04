@@ -285,6 +285,12 @@ class World {
     this.collide();
     const contacts = this.contacts;
     for (const c of contacts) this.prestep(c, dt);
+    // All restitution targets must use the same pre-solver velocity snapshot.
+    // Applying cached impulses during prestep polluted later contact targets and
+    // could pump energy into a compound bear resting on several neighbours.
+    for (const c of contacts) {
+      this.apply(c, c.Pn * c.nx - c.Pt * c.ny, c.Pn * c.ny + c.Pt * c.nx);
+    }
     for (let i = 0; i < config.velocityIters; i++) {
       for (const c of contacts) this.solve(c);
     }
@@ -480,7 +486,6 @@ class World {
     if (old) {
       c.Pn = old.Pn;
       c.Pt = old.Pt;
-      this.apply(c, c.Pn * nx + c.Pt * tx, c.Pn * ny + c.Pt * ty);
     }
   }
 
