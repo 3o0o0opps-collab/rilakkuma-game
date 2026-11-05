@@ -815,7 +815,7 @@ return {AfternoonGame,W,H,LINE,LEVELS,tierOf,dropBounds};
 // story.js
 modules.story=(()=>{
 const WORDS=Object.freeze({
- greeting:'你好呀，wyl大美女',
+ announcement:'感谢wyl大美女对本游戏的大力支持～（看到本消息说明你玩的是最新版本）',
  ending:'你以后的每一天都会和本熊一样轻松哦，开开心心，顺顺利利，平平安安～',
  prize:'哇塞你也太厉害了！可凭此弹窗于wzn处领取神秘大奖一份！'
 });
@@ -1020,10 +1020,9 @@ const story=$('story');
 function portrait(mood=0){const c=$('story-bear'),rect=c.getBoundingClientRect(),ratio=Math.min(Math.max(devicePixelRatio||1,2),3);c.width=Math.round((rect.width||190)*ratio);c.height=Math.round((rect.height||175)*ratio);const g=c.getContext('2d');g.clearRect(0,0,c.width,c.height);const r=portraits.regions[mood],scale=Math.min(c.width*.9/r[2],c.height*.94/r[3]);g.drawImage(atlases[portraits.page],...r,(c.width-r[2]*scale)/2,(c.height-r[3]*scale)/2,r[2]*scale,r[3]*scale);c.setAttribute('aria-label',['轻松熊，温柔地微笑','轻松熊，惊喜开心','轻松熊，沮丧地垂下头'][mood]);c.className=['neutral','delighted','sad'][mood];}
 function showStory(title,copy,mood,label,action){storyActive=true;$('story-title').textContent=title;$('story-copy').textContent=copy;$('story-ok').textContent=label;storyAction=action;if(!story.open)story.showModal();portrait(mood);$('story-ok').focus();}
 function closeStory(){storyActive=false;story.close();if(storyQueue.length){showQueuedStory();return;}if(storyReturn){const value=storyReturn;storyReturn=null;setState(value==='playing'&&document.hidden?'paused':value);if(state==='playing')canvas.focus({preventScroll:true});}}
-let greetingTimer;
-function greet(){showStory('见到你真开心！',WORDS.greeting,1,'开始玩吧',enterGame);greetingTimer=setTimeout(enterGame,1800);}
-function enterGame(){clearTimeout(greetingTimer);if($('home').hidden)return;closeStory();$('home').hidden=true;document.querySelector('.game-shell').hidden=false;setState('ready');icons();next();if(restored)resume();else startNew();if(document.hidden)pause();}
-$('home-start').addEventListener('click',greet);
+function announce(){showStory('游戏公告',WORDS.announcement,1,'开始玩吧',enterGame);}
+function enterGame(){if($('home').hidden)return;closeStory();$('home').hidden=true;document.querySelector('.game-shell').hidden=false;setState('ready');icons();next();if(restored)resume();else startNew();if(document.hidden)pause();}
+$('home-start').addEventListener('click',announce);
 $('author').addEventListener('click',()=>showStory('关于作者','作者：wzn',0,'回到花园',closeStory));
 $('story-ok').addEventListener('click',()=>storyAction?.());
 story.addEventListener('cancel',e=>{e.preventDefault();});
