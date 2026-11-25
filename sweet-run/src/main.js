@@ -140,7 +140,9 @@ for(const b of document.querySelectorAll('.close-dialog'))b.addEventListener('cl
 for(const d of document.querySelectorAll('dialog'))d.addEventListener('click',e=>{if(e.target===d){const r=d.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)d.close();}});
 window.addEventListener('keydown',e=>{
   if(document.querySelector('dialog[open]'))return;
-  const k=e.code;if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(k))e.preventDefault();
+  const k=e.code;
+  if((k==='Space'||k==='Enter')&&e.target instanceof Element&&e.target.closest('button,a,input,select,textarea'))return;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(k))e.preventDefault();
   if((k==='KeyP'||k==='Escape')&&!e.repeat){togglePause();return;}
   if((G.state==='menu'||G.state==='over')&&(k==='Space'||k==='Enter')&&!e.repeat){start();return;}
   if(G.state==='paused'&&k==='Space'&&!e.repeat){togglePause();return;}
