@@ -2,7 +2,7 @@ import { CONFIG, clamp, collision, createCourse, damp, districtAt, laneX, loadRe
 import { makeStage, makeParticles, makePuddingBatch } from './world.js?v=2';
 import { makeTrack } from './scenery.js';
 import { makeObstacles, makeShuttleMarker } from './obstacles.js';
-import { makeRunner } from './runner.js';
+import { makeRunner } from './runner.js?v=2.1';
 import { SweetAudio } from './audio.js';
 
 // Adapted from Mohamed Amine Dehane's Subway Rush (MIT).
@@ -317,7 +317,11 @@ function animate(dt) {
     camera.updateProjectionMatrix();
   }
   if (playing) game.phase += game.speed * dt * 1.62;
-  const mode = ended ? 'crash' : game.rollTimer > 0 ? 'slide' : menu || !game.grounded ? 'wave' : 'run';
+  let mode = 'run';
+  if (menu) mode = 'menu';
+  else if (ended) mode = 'crash';
+  else if (game.rollTimer > 0) mode = 'slide';
+  else if (!game.grounded) mode = 'jump';
   runner.draw(camera, { x, y, z, scale, mode, time, stride: game.phase, turn: (laneX(game.lane) - game.x) / CONFIG.laneWidth,
     crash: 1 - game.crashTime / .57, reduced });
   track.update(game.distance);
@@ -331,6 +335,7 @@ function animate(dt) {
   }
   puddings.update(coins, game.distance, time, reduced);
   stage.tick(time, district.id, dt, reduced);
+  return mode;
 }
 
 function updateHud() {
@@ -369,7 +374,7 @@ function frame(now) {
     if (game.toastTime <= 0) $('toast').classList.remove('show');
   }
   particles.update(paused ? 0 : dt);
-  animate(paused ? 0 : dt);
+  const pose = animate(paused ? 0 : dt);
   audio.update(game.state === 'playing');
   updateHud();
   renderer.render(scene, camera);
@@ -383,6 +388,7 @@ function frame(now) {
         speed: game.speed, rolling: game.rollTimer > 0, coins: game.coins, best: game.best, district: district.id,
         drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles, tiles: track.size,
         fps: Math.round(metricFrames / metricTime),
+        pose,
         rows: guideRows.slice(0, 5).map(({ distance, lane, action, obstacles }) => ({ distance, lane, action, obstacles })),
       });
       metricTime = 0;

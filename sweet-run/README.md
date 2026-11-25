@@ -21,7 +21,7 @@
 
 ## 素材与来源
 
-- 游戏内站姿、挥手和侧躺原图来自[轻松熊动画官网](https://rilakkuma-anime.com/)。场景为三维，游戏用这三张手绘角色图表现跑步、跳跃和滑行。
+- 首页挥手图和背面动画使用的头部轮廓来自[轻松熊动画官网](https://rilakkuma-anime.com/)。跑步、跳跃和滑行均以背后视角表现，背部拉链参考 [San-X 的官方角色介绍](https://www.san-x.co.jp/rilakkuma/20th_anniversary/)。
 - 菜单里的角色贴图来自 [San-X 官方角色网站](https://www.san-x.co.jp/ja/characters/rilakkuma/)。图片的原始地址在 `assets/sources.json`。
 - 场景、障碍、布丁和界面为本项目制作。音乐和音效由 Web Audio 合成。
 - 保留 Subway Rush 原作者 Mohamed Amine Dehane 和 Three.js 的 MIT 许可证。
