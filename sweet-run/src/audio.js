@@ -6,7 +6,30 @@ export class SweetAudio {
     const t=at??this.context.currentTime,o=this.context.createOscillator(),g=this.context.createGain();
     o.type=type;o.frequency.value=frequency;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(volume,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+duration);o.connect(g).connect(this.context.destination);o.start(t);o.stop(t+duration+.03);
   }
-  effect(kind){this.start();if(kind==='coin'){this.note(1046,.13,.026);this.note(1568,.19,.015,'sine',this.context?.currentTime+.07);}else if(kind==='jump')this.note(523,.19,.025,'triangle');else if(kind==='roll')this.note(294,.15,.025,'triangle');else if(kind==='crash'){this.note(220,.35,.035,'triangle');this.note(165,.45,.02);}else if(kind==='start'){this.note(523,.22,.027);this.note(659,.25,.022,'sine',this.context?.currentTime+.12);this.note(784,.35,.02,'sine',this.context?.currentTime+.24);}}
+  effect(kind) {
+    this.start();
+    const now = this.context?.currentTime;
+    if (kind === 'coin') {
+      this.note(1046, .13, .026);
+      this.note(1568, .19, .015, 'sine', now + .07);
+    } else if (kind === 'jump') this.note(523, .19, .025, 'triangle');
+    else if (kind === 'roll') this.note(294, .15, .025, 'triangle');
+    else if (kind === 'crash') {
+      this.note(220, .35, .035, 'triangle');
+      this.note(165, .45, .02);
+    } else if (kind === 'start') {
+      this.note(523, .22, .027);
+      this.note(659, .25, .022, 'sine', now + .12);
+      this.note(784, .35, .02, 'sine', now + .24);
+    } else if (kind === 'spring') {
+      this.note(392, .16, .032, 'triangle');
+      this.note(784, .23, .025, 'triangle', now + .075);
+    } else if (kind === 'power') {
+      this.note(659, .24, .025);
+      this.note(988, .26, .020, 'sine', now + .09);
+      this.note(1318, .32, .014, 'sine', now + .16);
+    }
+  }
   toggle(){this.start();this.muted=!this.muted;try{localStorage.setItem('rilakkumaSweetRun.muted',String(this.muted));}catch{}return this.muted;}
   update(playing){
     if(!this.context||!playing){this.nextBeat=0;return;}

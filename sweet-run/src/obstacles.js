@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ball, bake, beam, block, COCOA, CREAM, floor, glow, groupAt, HONEY, lantern, LEAF, MINT, PINK, sign, tube, WOOD } from './art.js';
+import { makeRollingCandy, makeTrain } from './features.js?v=3';
 
 function flag(group, x, y, z, color, size = 1) {
   const shape = new THREE.Shape();
@@ -154,7 +155,8 @@ function lanterns(group) {
   }
 }
 
-const makers = { basket, bunting, cart, log, branch, hedge, gap, beam: bridgeBeam, hives, shuttle: (group) => cart(group, true), sweets, lanterns };
+const makers = { basket, bunting, cart, log, branch, hedge, gap, beam: bridgeBeam, hives, shuttle: (group) => cart(group, true), sweets, lanterns,
+  train: makeTrain, roller: makeRollingCandy };
 
 export function makeObstacles() {
   return Object.fromEntries(Object.entries(makers).map(([type, make]) => {

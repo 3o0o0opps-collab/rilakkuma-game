@@ -1,9 +1,11 @@
-import { CONFIG, clamp, collision, createCourse, damp, districtAt, laneX, loadRecord, OBSTACLES, obstacleX, paceAt, verticalStep } from './rules.mjs?v=2';
-import { makeStage, makeParticles, makePuddingBatch } from './world.js?v=2';
-import { makeTrack } from './scenery.js';
-import { makeObstacles, makeShuttleMarker } from './obstacles.js';
-import { makeRunner } from './runner.js?v=2.1';
-import { SweetAudio } from './audio.js';
+import { CONFIG, clamp, collision, createCourse, damp, districtAt, followSurface, hitsSpring, laneX,
+  loadRecord, OBSTACLES, obstacleX, obstacleZ, paceAt, PICKUPS, reachesPickup } from './rules.mjs?v=3';
+import { makeStage, makeParticles, makePuddingBatch } from './world.js?v=3';
+import { makeTrack } from './scenery.js?v=3';
+import { makeObstacles, makeShuttleMarker } from './obstacles.js?v=3';
+import { makeRouteProps, SURFACE_MODEL_LENGTH } from './features.js?v=3';
+import { makeRunner } from './runner.js?v=3';
+import { SweetAudio } from './audio.js?v=3';
 
 // Adapted from Mohamed Amine Dehane's Subway Rush (MIT).
 const $ = (id) => document.getElementById(id);
@@ -15,7 +17,8 @@ const tutorial = $('tutorial');
 const scoreHud = $('score-hud');
 const coinHud = $('coins-hud');
 const districtBadge = $('district-name');
-let stage, runner, track, particles, puddings, prototypes, shuttleMarker;
+const powerHud = $('power-hud');
+let stage, runner, track, particles, puddings, prototypes, routeProps, markerModels;
 
 try {
   stage = makeStage(canvas);
@@ -25,7 +28,8 @@ try {
   particles = makeParticles(stage.scene);
   puddings = makePuddingBatch(stage.scene);
   prototypes = makeObstacles();
-  shuttleMarker = makeShuttleMarker();
+  routeProps = makeRouteProps();
+  markerModels = { shuttle: makeShuttleMarker(), train: routeProps.rail, roller: routeProps.candyTrack };
 } catch (error) {
   const loading = $('loading');
   loading.querySelector('p').textContent = '小镇暂时没能打开，请刷新后重试。';
@@ -39,9 +43,12 @@ try {
 const { renderer, scene, camera } = stage;
 const audio = new SweetAudio();
 const obstaclePool = Object.fromEntries(Object.keys(prototypes).map((type) => [type, []]));
-const markerPool = [];
+const markerPools = Object.fromEntries(Object.keys(markerModels).map((type) => [type, []]));
 const obstacles = [];
 const coins = [];
+const surfaces = [];
+const springs = [];
+const pickups = [];
 const guideRows = [];
 const storage = (() => {
   try { return window.localStorage; } catch { return null; }
@@ -49,7 +56,7 @@ const storage = (() => {
 const game = { state: 'menu', best: loadRecord(storage) };
 let course, nextRow, gesture;
 let accumulator = 0, lastTime = 0, time = 0, homeBlend = 1;
-let district, displayedDistance = -1, displayedCoins = -1, visibleHint = '';
+let district, displayedDistance = -1, displayedCoins = -1, displayedPowers = '', visibleHint = '';
 let metricTime = 0, metricFrames = 0;
 
 function setState(state) {
@@ -84,12 +91,17 @@ function changeDistrict(value) {
 function reset() {
   for (const obstacle of obstacles) recycle(obstacle);
   obstacles.length = 0;
+  for (const list of [surfaces, springs, pickups]) {
+    for (const prop of list) scene.remove(prop.mesh);
+    list.length = 0;
+  }
   coins.length = 0;
   guideRows.length = 0;
   particles.reset();
   Object.assign(game, {
-    lane: 1, x: 0, y: 0, vy: 0, grounded: true, rollTimer: 0, jumpBuffer: 0,
+    lane: 1, x: 0, y: 0, vy: 0, floor: 0, grounded: true, sliding: false, rollTimer: 0, jumpBuffer: 0,
     speed: CONFIG.startSpeed, distance: 0, coins: 0, phase: 0, crashTime: 0, toastTime: 0,
+    shield: 0, magnet: 0, double: 0, grace: 0, launches: 0, lastHit: '',
   });
   displayedDistance = -1;
   displayedCoins = -1;
@@ -167,12 +179,12 @@ function move(direction) {
   if (game.state === 'playing') game.lane = clamp(game.lane + direction, 0, 2);
 }
 
-function launchJump() {
-  game.vy = CONFIG.jumpVelocity;
+function launchJump(velocity = CONFIG.jumpVelocity, sound = 'jump') {
+  game.vy = velocity;
   game.grounded = false;
   game.rollTimer = 0;
   game.jumpBuffer = 0;
-  audio.effect('jump');
+  audio.effect(sound);
 }
 
 function jump() {
@@ -193,16 +205,16 @@ function addCoin(lane, y, at) {
   coins.push({ x: laneX(lane), y, at });
 }
 
-function addObstacle(type, lane, at) {
+function addObstacle(type, lane, at, phase) {
   const mesh = obstaclePool[type].pop() || prototypes[type].clone();
   scene.add(mesh);
   let marker;
-  if (type === 'shuttle') {
-    marker = markerPool.pop() || shuttleMarker.clone();
+  if (markerModels[type]) {
+    marker = markerPools[type].pop() || markerModels[type].clone();
     scene.add(marker);
   }
-  const z = game.distance - at;
-  obstacles.push({ ...OBSTACLES[type], type, lane, at, mesh, marker, z, previousZ: z, x: obstacleX(type, lane, -z) });
+  const z = obstacleZ(type, at, game.distance);
+  obstacles.push({ ...OBSTACLES[type], type, lane, at, phase, mesh, marker, z, previousZ: z, x: obstacleX(type, lane, -z, phase) });
 }
 
 function recycle(obstacle) {
@@ -210,12 +222,14 @@ function recycle(obstacle) {
   obstaclePool[obstacle.type].push(obstacle.mesh);
   if (obstacle.marker) {
     scene.remove(obstacle.marker);
-    markerPool.push(obstacle.marker);
+    markerPools[obstacle.type].push(obstacle.marker);
   }
 }
 
-function placePuddings({ distance, lane, action }) {
-  if (action === 'jump') {
+function placePuddings({ distance, lane, action, trail }) {
+  if (trail) {
+    for (const coin of trail) addCoin(coin.lane, coin.y, coin.distance);
+  } else if (action === 'jump') {
     const spread = paceAt(distance) * .15;
     for (const index of [-1, 0, 1]) addCoin(lane, index === 0 ? 2.64 : 2.23, distance + index * spread);
   } else if (action === 'roll') {
@@ -225,34 +239,98 @@ function placePuddings({ distance, lane, action }) {
   }
 }
 
+function placeRoute(row) {
+  for (const surface of row.surfaces ?? []) {
+    const mesh = routeProps.surfaces[surface.type].clone();
+    mesh.position.x = laneX(surface.lane);
+    mesh.scale.z = (surface.end - surface.start) / SURFACE_MODEL_LENGTH;
+    scene.add(mesh);
+    surfaces.push({ ...surface, mesh });
+  }
+  for (const spring of row.springs ?? []) {
+    const mesh = routeProps.spring.clone();
+    mesh.position.x = laneX(spring.lane);
+    scene.add(mesh);
+    springs.push({ ...spring, mesh, usedAt: null });
+  }
+  for (const item of row.pickups ?? []) {
+    const mesh = routeProps.pickups[item.type].clone();
+    mesh.position.x = laneX(item.lane);
+    scene.add(mesh);
+    pickups.push({ ...item, mesh });
+  }
+}
+
 function spawnAhead() {
   while (nextRow.distance <= game.distance + ahead) {
-    for (const { type, lane } of nextRow.obstacles) addObstacle(type, lane, nextRow.distance);
+    for (const { type, lane, at, phase } of nextRow.obstacles) addObstacle(type, lane, at ?? nextRow.distance, phase);
+    placeRoute(nextRow);
     placePuddings(nextRow);
     guideRows.push(nextRow);
     nextRow = course.next();
   }
 }
 
+function pruneProps(list, until) {
+  while (list[0] && (list[0].end ?? list[0].distance) < until) scene.remove(list.shift().mesh);
+}
+
+function collectPickups(player) {
+  for (let index = pickups.length - 1; index >= 0; index--) {
+    const item = pickups[index];
+    if (!reachesPickup(item, player)) continue;
+    const power = PICKUPS[item.type];
+    game[item.type] = power.duration;
+    scene.remove(item.mesh);
+    pickups.splice(index, 1);
+    audio.effect('power');
+    toast(item.type === 'shield' ? '布丁护盾 · 抵挡一次碰撞' : `${power.label} · ${power.duration} 秒`);
+    if (!reduced) particles.burst(player.x, item.y, player.distance - item.distance);
+  }
+}
+
 function step(dt) {
   const previousDistance = game.distance;
-  game.speed = paceAt(previousDistance);
+  game.speed = paceAt(previousDistance) * (game.sliding ? CONFIG.slideBoost : 1);
   game.distance += game.speed * dt;
-  game.x += (laneX(game.lane) - game.x) * damp(CONFIG.laneDamping, dt);
+  const targetX = game.x + (laneX(game.lane) - game.x) * damp(CONFIG.laneDamping, dt);
   game.rollTimer = Math.max(0, game.rollTimer - dt);
   game.jumpBuffer = Math.max(0, game.jumpBuffer - dt);
-  const next = verticalStep(game.y, game.vy, game.grounded, dt);
+  game.magnet = Math.max(0, game.magnet - dt);
+  game.double = Math.max(0, game.double - dt);
+  game.grace = Math.max(0, game.grace - dt);
+  const next = followSurface(surfaces, game, targetX, dt);
+  if (next.sliding && !game.sliding) audio.effect('roll');
+  game.x = next.x;
   game.y = next.y;
   game.vy = next.velocity;
+  game.floor = next.floor;
   game.grounded = next.grounded;
+  game.sliding = next.sliding;
   if (game.grounded && game.jumpBuffer) launchJump();
+  for (const spring of springs) {
+    if (spring.usedAt !== null || !hitsSpring(spring, game, previousDistance)) continue;
+    spring.usedAt = game.distance;
+    game.launches++;
+    launchJump(CONFIG.springVelocity, 'spring');
+  }
 
-  const player = { x: game.x, y: game.y, rolling: game.rollTimer > 0 };
+  const player = { x: game.x, y: game.y, distance: game.distance, rolling: game.sliding || game.rollTimer > 0 };
+  collectPickups(player);
   for (const obstacle of obstacles) {
     obstacle.previousZ = obstacle.z;
-    obstacle.z = game.distance - obstacle.at;
-    obstacle.x = obstacleX(obstacle.type, obstacle.lane, -obstacle.z);
-    if (collision(obstacle, player)) {
+    obstacle.z = obstacleZ(obstacle.type, obstacle.at, game.distance);
+    obstacle.x = obstacleX(obstacle.type, obstacle.lane, -obstacle.z, obstacle.phase);
+    if (obstacle.shielded || game.grace || !collision(obstacle, player)) continue;
+    if (game.shield) {
+      game.shield = 0;
+      game.grace = .23;
+      obstacle.shielded = true;
+      audio.effect('power');
+      if (!reduced) particles.burst(game.x, game.y + .95, 0);
+      toast('护盾挡下了一次碰撞');
+    } else {
+      game.lastHit = obstacle.type;
       crash();
       return;
     }
@@ -261,9 +339,14 @@ function step(dt) {
   for (let index = coins.length - 1; index >= 0; index--) {
     const coin = coins[index];
     const z = game.distance - coin.at;
+    if (game.magnet && z > -4.7 && z < .75 && Math.abs(coin.x - game.x) < 3.45 && Math.abs(coin.y - center) < 3.3) {
+      const pull = damp(19, dt);
+      coin.x += (game.x - coin.x) * pull;
+      coin.y += (center - coin.y) * pull;
+    }
     if (z < -.73) continue;
     if (z < .75 && Math.abs(coin.x - game.x) < .67 && Math.abs(coin.y - center) < .70) {
-      game.coins++;
+      game.coins += game.double ? 2 : 1;
       audio.effect('coin');
       if (!reduced) particles.burst(coin.x, coin.y, z);
       coins.splice(index, 1);
@@ -271,8 +354,16 @@ function step(dt) {
       coins.splice(index, 1);
     }
   }
-  while (guideRows[0]?.distance < game.distance - 2) guideRows.shift();
-  while (obstacles[0]?.z > 13) recycle(obstacles.shift());
+  while ((guideRows[0]?.end ?? guideRows[0]?.distance) < game.distance - 2) guideRows.shift();
+  for (let index = obstacles.length - 1; index >= 0; index--) {
+    const obstacle = obstacles[index];
+    if (game.distance - obstacle.at < (obstacle.type === 'train' ? 24 : 13)) continue;
+    recycle(obstacle);
+    obstacles.splice(index, 1);
+  }
+  pruneProps(surfaces, game.distance - 12);
+  pruneProps(springs, game.distance - 12);
+  pruneProps(pickups, game.distance - 12);
   spawnAhead();
 
   const section = districtAt(game.distance);
@@ -283,11 +374,18 @@ function step(dt) {
 function updateHint() {
   if (game.state !== 'playing') return;
   const row = guideRows.find(({ distance }) => distance > game.distance - .5);
+  const event = guideRows.find(({ kind, distance, end }) => kind && distance - game.distance < 13 && end > game.distance);
   let hint = '';
-  if (row && row.distance <= 63 && row.distance - game.distance < 17) {
+  if (row && row.distance <= 46 && row.distance - game.distance < 17) {
     if (row.action === 'jump') hint = '↑ 跳过野餐篮';
     if (row.action === 'roll') hint = '↓ 滑过彩旗架';
     if (row.action === 'run') hint = '← 跟着布丁换到左道';
+  }
+  if (!hint && event) {
+    const offset = game.distance - event.distance;
+    if (event.kind === 'rail' && offset < 18) hint = '沿斜坡上车顶，留意迎面列车';
+    if (event.kind === 'spring' && offset < 7) hint = '踩弹簧上高台';
+    if (event.kind === 'roller' && offset < 15) hint = '糖球横穿两道 · 可跳过';
   }
   if (hint === visibleHint) return;
   visibleHint = hint;
@@ -306,12 +404,13 @@ function animate(dt) {
   const z = homeBlend * (portrait ? 1.77 : 1.60);
   const scale = 1 + homeBlend * (portrait ? .22 : .75);
   const desiredX = game.x * .24 * (1 - homeBlend);
-  const desiredY = 4.96 + homeBlend * (portrait ? 2.65 : .56);
+  const lift = (1 - homeBlend) * (game.floor * .74 + (game.y - game.floor) * .34);
+  const desiredY = 4.96 + lift + homeBlend * (portrait ? 2.65 : .56);
   camera.position.x += (desiredX - camera.position.x) * damp(7, dt);
   camera.position.y += (desiredY - camera.position.y) * damp(7, dt);
   camera.position.z = 9.65 + homeBlend * (portrait ? 4.4 : 1.25);
-  camera.lookAt(0, 1.60 + homeBlend * (portrait ? 1.26 : .30), -7.8);
-  const fov = portrait ? 61 : 51 + (game.speed - CONFIG.startSpeed) * .085;
+  camera.lookAt(0, 1.60 + (camera.position.y - desiredY + lift) * .86 + homeBlend * (portrait ? 1.26 : .30), -7.8);
+  const fov = (portrait ? 61 : 51) + (game.speed - CONFIG.startSpeed) * .085;
   if (camera.fov !== fov) {
     camera.fov = fov;
     camera.updateProjectionMatrix();
@@ -320,18 +419,32 @@ function animate(dt) {
   let mode = 'run';
   if (menu) mode = 'menu';
   else if (ended) mode = 'crash';
-  else if (game.rollTimer > 0) mode = 'slide';
+  else if (game.sliding || game.rollTimer > 0) mode = 'slide';
   else if (!game.grounded) mode = 'jump';
   runner.draw(camera, { x, y, z, scale, mode, time, stride: game.phase, turn: (laneX(game.lane) - game.x) / CONFIG.laneWidth,
-    crash: 1 - game.crashTime / .57, reduced });
+    crash: 1 - game.crashTime / .57, floor: game.floor, shield: game.shield || game.grace, reduced });
   track.update(game.distance);
   for (const obstacle of obstacles) {
-    obstacle.mesh.position.set(obstacle.x, 0, obstacle.z);
+    const rollingCandy = obstacle.type === 'roller';
+    obstacle.mesh.position.set(obstacle.x, rollingCandy ? .72 : 0, obstacle.z);
+    if (rollingCandy) obstacle.mesh.rotation.z = -(obstacle.x - laneX(obstacle.lane)) / .72;
     obstacle.mesh.visible = obstacle.z > -89 && obstacle.z < 10;
     if (obstacle.marker) {
-      obstacle.marker.position.set(laneX(obstacle.lane), 0, obstacle.z);
-      obstacle.marker.visible = obstacle.z > -32 && obstacle.z < 6;
+      const markerZ = obstacle.type === 'shuttle' ? obstacle.z : game.distance - obstacle.at;
+      obstacle.marker.position.set(laneX(obstacle.lane + (rollingCandy ? .5 : 0)), 0, markerZ);
+      obstacle.marker.visible = markerZ > -89 && markerZ < 18;
     }
+  }
+  for (const surface of surfaces) surface.mesh.position.z = game.distance - (surface.start + surface.end) / 2;
+  for (const spring of springs) {
+    spring.mesh.position.z = game.distance - spring.distance;
+    const rebound = spring.usedAt === null ? 0 : Math.exp(-(game.distance - spring.usedAt) / 2);
+    spring.mesh.scale.y = 1 - .46 * rebound;
+  }
+  for (const item of pickups) {
+    item.mesh.position.y = item.y + (reduced ? 0 : Math.sin(time * 3.8 + item.distance) * .13);
+    item.mesh.position.z = game.distance - item.distance;
+    item.mesh.rotation.y = reduced ? 0 : Math.sin(time * 2.4 + item.distance) * .68;
   }
   puddings.update(coins, game.distance, time, reduced);
   stage.tick(time, district.id, dt, reduced);
@@ -347,6 +460,15 @@ function updateHud() {
   if (displayedCoins !== game.coins) {
     coinHud.textContent = game.coins;
     displayedCoins = game.coins;
+  }
+  const powers = Object.entries(PICKUPS)
+    .filter(([type]) => game[type] > 0)
+    .map(([type, { label }]) => type === 'shield' ? label : `${label} ${Math.ceil(game[type])}秒`)
+    .join(' · ');
+  if (powers !== displayedPowers) {
+    displayedPowers = powers;
+    powerHud.textContent = powers;
+    powerHud.hidden = !powers;
   }
   updateHint();
 }
@@ -385,11 +507,14 @@ function frame(now) {
     if (metricTime >= .20) {
       canvas.dataset.telemetry = JSON.stringify({
         state: game.state, distance: +game.distance.toFixed(2), lane: game.lane, y: +game.y.toFixed(2),
-        speed: game.speed, rolling: game.rollTimer > 0, coins: game.coins, best: game.best, district: district.id,
+        speed: game.speed, rolling: game.sliding || game.rollTimer > 0, coins: game.coins, best: game.best, district: district.id,
         drawCalls: renderer.info.render.calls, triangles: renderer.info.render.triangles, tiles: track.size,
         fps: Math.round(metricFrames / metricTime),
-        pose,
-        rows: guideRows.slice(0, 5).map(({ distance, lane, action, obstacles }) => ({ distance, lane, action, obstacles })),
+        pose, floor: +game.floor.toFixed(2), sliding: game.sliding, launches: game.launches, lastHit: game.lastHit,
+        powers: { shield: game.shield, magnet: game.magnet, double: game.double },
+        rows: guideRows.slice(0, 5),
+        vehicles: obstacles.filter(({ type }) => type === 'train' || type === 'roller').slice(0, 4)
+          .map(({ type, lane, at, x, z }) => ({ type, lane, at, x, z })),
       });
       metricTime = 0;
       metricFrames = 0;

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { districtAt, isDistrictEntrance, TILE_LENGTH } from './rules.mjs?v=2';
+import { districtAt, isDistrictEntrance, TILE_LENGTH } from './rules.mjs?v=3';
 import { ball, bake, beam, block, COCOA, CREAM, floor, glow, groupAt, HONEY, lantern, LEAF, MINT, PINK, piece, sign, tube, WOOD } from './art.js';
 
 const shopColors = [
@@ -10,9 +10,9 @@ const shopColors = [
 ];
 const glass = '#91b7ae';
 const roofGeometry = new THREE.ConeGeometry(1, 1, 4);
-const postColors = { town: '#bd8263', grove: '#ba768e', river: '#ad7647', market: '#835d7e' };
-const laneColors = { town: '#fbe2bb', grove: '#fbe0d4', river: '#f7d29c', market: '#eec4a0' };
-const roadColors = { town: '#dbb18e', grove: '#d38e9c', river: '#a87759', market: '#785a75' };
+const postColors = { town: '#bd8263', grove: '#ba768e', river: '#ad7647', market: '#835d7e', workshop: '#7975a9' };
+const laneColors = { town: '#fbe2bb', grove: '#fbe0d4', river: '#f7d29c', market: '#eec4a0', workshop: '#f7dfad' };
+const roadColors = { town: '#dbb18e', grove: '#d38e9c', river: '#a87759', market: '#785a75', workshop: '#aa9fba' };
 
 function canopy(group, centerY, front, color, width) {
   const awning = groupAt(group, 0, centerY, front);
@@ -254,6 +254,50 @@ function market(group, variant) {
   lanternString(group, 10.7);
 }
 
+function mixingVat(group, x, z, variant) {
+  const color = variant ? '#d69cb9' : '#8fbab1';
+  tube(group, '#88728b', x, .18, z, 1.34, 1.47, .33, 18);
+  tube(group, color, x, 1.48, z, 1.20, 1.35, 2.44, 18);
+  tube(group, CREAM, x, 2.62, z, 1.28, 1.28, .19, 20);
+  tube(group, '#b57853', x, 2.73, z, 1.13, 1.15, .12, 20);
+  const lid = ball(group, '#f1bd6e', x, 2.82, z, 1.17, .48, 1.17);
+  lid.rotation.y = variant;
+  tube(group, '#c3855b', x, 3.03, z, .20, .20, 1.18, 12);
+  ball(group, glow('#ffd88b'), x, 3.64, z, .18, .15, .18, false);
+  sign(group, variant ? '焦糖' : '牛奶', x, 1.63, z + 1.28, 1.26, .51, '#ffe9be');
+}
+
+function workshop(group, variant) {
+  floor(group, '#8d889e', 0, -.043, 0, 78, TILE_LENGTH);
+  for (const side of [-1, 1]) {
+    const x = side * 8.85;
+    block(group, side < 0 ? '#a59aba' : '#b49db3', x, 3.32, 0, 1.71, 6.58, TILE_LENGTH);
+    block(group, '#8b80a9', side * 8.20, .63, 0, .32, 1.11, TILE_LENGTH);
+    block(group, '#ddc9de', side * 7.97, 6.02, 0, .20, .28, TILE_LENGTH);
+    block(group, '#bdabd1', side * 5.06, .08, 0, 1.36, .18, TILE_LENGTH, false);
+    for (const z of [-12.0, -4.0, 4.0, 12.0]) {
+      block(group, CREAM, side * 7.94, 4.44, z, .28, 1.80, 3.50);
+      block(group, '#9fb9c4', side * 7.77, 4.50, z, .07, 1.56, 3.08);
+      block(group, '#e9d2d6', side * 7.724, 4.52, z, .083, 1.54, .073);
+      block(group, '#f5e7cf', side * 7.71, 4.73, z, .084, .065, 3.08);
+    }
+    for (const z of [-10.3, 6.2]) {
+      mixingVat(group, side * 6.17, z + (variant ? 1.3 : 0), (side < 0 ? 1 : 0) ^ variant);
+      tube(group, '#ad7a64', side * 3.89, .49, z + 3.5, .067, .079, .96, 8);
+      ball(group, HONEY, side * 3.89, 1.0, z + 3.5, .124);
+    }
+    for (let i = 0; i < 16; i++) floor(group, glow(i % 2 ? '#d7b49a' : '#f0d1a2'), side * 4.02, .038, 15 - i * 2, .26, .96);
+  }
+  for (const z of [-10.4, 4.4]) {
+    for (const side of [-1, 1]) {
+      block(group, '#8a7fac', side * 5.00, 3.95, z, .19, 7.86, .26);
+      beam(group, '#afa1c4', [side * 5.0, 6.38, z], [side * 3.1, 8.05, z], .119);
+    }
+    block(group, '#8676a4', 0, 8.03, z, 10.04, .25, .32);
+    for (const x of [-2.8, 0, 2.8]) lantern(group, x, 7.69, z, '#ffdda6', .207);
+  }
+}
+
 function gate(group, district) {
   const gate = groupAt(group, 0, 0, 13.85);
   const color = postColors[district.id];
@@ -268,7 +312,7 @@ function gate(group, district) {
   sign(gate, district.label, 0, 6.63, .14, 3.9, .74, district.id === 'market' ? '#f5c68e' : '#fbe6be');
 }
 
-const sides = { town, grove, river, market };
+const sides = { town, grove, river, market, workshop };
 function buildTile(district, variant, entrance) {
   const group = new THREE.Group();
   floor(group, roadColors[district.id], 0, .008, 0, 8.6, TILE_LENGTH);

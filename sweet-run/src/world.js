@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { ball, bake, CREAM, HONEY, tube } from './art.js';
-import { damp } from './rules.mjs?v=2';
+import { damp } from './rules.mjs?v=3';
 
 const palettes = {
   town:   { sky: '#a5d6d2', horizon: '#f7d9b5', fog: '#dfd8bb', sun: '#fff0c9', hemi: '#fff0e2', ground: '#b5a589', direct: 2.25, ambient: 1.72, drift: '#f9b6bd' },
   grove:  { sky: '#e5a5c0', horizon: '#f8d2b9', fog: '#ecc2c5', sun: '#fff0be', hemi: '#ffddd6', ground: '#b9949f', direct: 2.02, ambient: 1.75, drift: '#ffbdcf' },
   river:  { sky: '#76bdca', horizon: '#f6d7a4', fog: '#b8d0bc', sun: '#ffe3a5', hemi: '#d8f4ec', ground: '#b0bc9b', direct: 2.22, ambient: 1.68, drift: '#fff2b1' },
   market: { sky: '#352e53', horizon: '#9e7181', fog: '#766587', sun: '#f9d4ac', hemi: '#f0c6d6', ground: '#8d7393', direct: 1.58, ambient: 1.36, drift: '#ffd58e' },
+  workshop: { sky: '#9c9dba', horizon: '#f2cbb1', fog: '#d1bdcb', sun: '#ffdfad', hemi: '#f3e0f4', ground: '#bca8b6', direct: 1.96, ambient: 1.74, drift: '#ffdeab' },
 };
 for (const palette of Object.values(palettes)) {
   for (const key of ['sky', 'horizon', 'fog', 'sun', 'hemi', 'ground', 'drift']) palette[key] = new THREE.Color(palette[key]);

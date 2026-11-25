@@ -51,3 +51,25 @@ body[data-district=market] .district-badge { background: #f6d8b5f5; color: #623f
 @media (min-width: 601px) { .world-caption { bottom: 7%; } }
 
 .brand img, .friend-stickers img { border-radius: 50%; }
+
+body[data-district=workshop] .district-badge { background: #eee3f6f0; color: #655177; }
+.power-hud {
+  position: fixed;
+  top: max(94px, calc(env(safe-area-inset-top) + 69px));
+  left: 4.4%;
+  padding: 7px 12px;
+  border: 1px solid #fff7e3;
+  border-radius: 14px;
+  background: #fff3dbc9;
+  color: #694f3a;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 3px 13px #68433015;
+}
+.info-dialog { max-height: calc(100dvh - 32px); overflow: auto; }
+@media (max-width: 800px) { .power-hud { left: 5%; } }
+@media (max-width: 600px) and (orientation: portrait) {
+  .power-hud { top: max(106px, calc(env(safe-area-inset-top) + 86px)); }
+  .world-caption { width: max-content; max-width: 94vw; white-space: normal; text-align: center; }
+}

@@ -188,6 +188,10 @@ export async function makeRunner(scene) {
     context.fillRect(0, 0, 96, 96);
   }, { transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
   const shadow = piece(scene, new THREE.PlaneGeometry(1.75, 1.18).rotateX(-Math.PI / 2), shadowTexture, 0, .027, 0, 1, 1, 1, false);
+  const shield = piece(scene, new THREE.SphereGeometry(1, 22, 14),
+    new THREE.MeshBasicMaterial({ color: '#f3a1af', transparent: true, opacity: .19, depthWrite: false, fog: false }),
+    0, 0, 0, 1.06, 1.31, .96, false);
+  shield.renderOrder = 4;
 
   return {
     draw(camera, pose) {
@@ -205,9 +209,14 @@ export async function makeRunner(scene) {
         rear.root.scale.setScalar(scale);
         rear.pose(pose);
       }
-      shadow.position.set(x, .027, z);
-      shadow.scale.setScalar(scale * (1 + y * .13));
-      shadow.material.opacity = 1 - Math.min(.58, y * .24);
+      const floor = onMenu ? 0 : pose.floor;
+      const aboveFloor = Math.max(0, y - floor);
+      shadow.position.set(x, floor + .042, z);
+      shadow.scale.setScalar(scale * (1 + aboveFloor * .13));
+      shadow.material.opacity = 1 - Math.min(.58, aboveFloor * .24);
+      shield.visible = !onMenu && Boolean(pose.shield);
+      shield.position.set(x, y + (mode === 'slide' ? .58 : 1.06), z);
+      shield.scale.y = mode === 'slide' ? .76 : 1.31;
     },
   };
 }
