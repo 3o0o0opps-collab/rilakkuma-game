@@ -9,3 +9,45 @@
 @media(max-width:600px) and (orientation:portrait){.home-copy{font-size:14px}.home-meta{font-size:12px}.home-meta .text-button{font-size:14px}.guide-grid p{font-size:12px}.guide-grid strong{font-size:13px}}
 .top-actions{margin-left:auto}
 .brand,.friend-stickers{mix-blend-mode:multiply}.icon-button{position:relative}.icon-button.muted:after{content:"";position:absolute;width:21px;height:1.5px;background:currentColor;transform:rotate(-45deg)}
+
+.district-badge {
+  position: fixed;
+  left: 50%;
+  top: max(34px, env(safe-area-inset-top));
+  transform: translateX(-50%);
+  padding: 7px 15px;
+  border: 1px solid #fff1dbd6;
+  border-radius: 999px;
+  background: #fff2dbeb;
+  color: #714d39;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: .06em;
+  white-space: nowrap;
+  box-shadow: 0 3px 16px #4b2f3525;
+}
+body[data-district=grove] .district-badge { background: #ffe4e9f0; color: #8d4f60; }
+body[data-district=river] .district-badge { background: #e2f3e5f0; color: #41685b; }
+body[data-district=market] .district-badge { background: #f6d8b5f5; color: #623f61; }
+.world-caption { bottom: 12%; color: #775439; }
+.world-caption > span { font-size: inherit; margin: 0 3px; }
+.tutorial { font-size: 15px; font-weight: 600; color: #805637; border: 1px solid #fffaf2; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .district-badge { left: 5%; top: max(74px,calc(env(safe-area-inset-top) + 55px)); transform: none; font-size: 12px; padding: 5px 10px; }
+  .world-caption { bottom: 12%; font-size: 11px; }
+  .tutorial { font-size: 14px; }
+}
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 720px) {
+  .home-panel { top: 90px; }
+  h1 > span { font-size: 39px; }
+  .home-copy { margin: 10px 0 15px; }
+  .world-caption { bottom: 10%; }
+}
+@media (max-width: 600px) and (orientation: portrait) and (max-height: 560px) {
+  .world-caption { display: none; }
+  .home-panel { top: 76px; }
+}
+
+@media (min-width: 601px) { .world-caption { bottom: 7%; } }
+
+.brand img, .friend-stickers img { border-radius: 50%; }

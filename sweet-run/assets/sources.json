@@ -1,1 +1,11 @@
-{"reference":"https://www.san-x.co.jp/ja/characters/rilakkuma/","rilakkuma.webp":"https://www.san-x.co.jp/uploads/1769160901929-s5ca3w4hrqb/1.webp","korilakkuma.webp":"https://www.san-x.co.jp/uploads/1769160902709-izpgt7acbme/2.webp","kiiroitori.webp":"https://www.san-x.co.jp/uploads/1769160903684-d128ee802ck/3.webp","character_3d":"Authored for this personal fan game following official character reference; not an official San-X 3D asset.","upstream":"https://github.com/AmineDehane/subway-surfers/commit/50c8933bc4"}
+{
+  "menu_reference": "https://www.san-x.co.jp/ja/characters/rilakkuma/",
+  "rilakkuma.webp": "https://www.san-x.co.jp/uploads/1769160901929-s5ca3w4hrqb/1.webp",
+  "korilakkuma.webp": "https://www.san-x.co.jp/uploads/1769160902709-izpgt7acbme/2.webp",
+  "kiiroitori.webp": "https://www.san-x.co.jp/uploads/1769160903684-d128ee802ck/3.webp",
+  "playable_character_reference": "https://rilakkuma-anime.com/",
+  "rilakkuma-run.png": "https://rilakkuma-anime.com/assets/img/chara/chara_stand_1-2.png",
+  "rilakkuma-wave.png": "https://rilakkuma-anime.com/assets/img/chara/chara_stand_1-1.png",
+  "rilakkuma-slide.png": "https://rilakkuma-anime.com/assets/img/chara/chara_stand_1-3.png",
+  "upstream": "https://github.com/AmineDehane/subway-surfers/commit/50c8933bc4"
+}
